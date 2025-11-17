@@ -327,22 +327,18 @@ export default class TrackManager {
      * Internal helper to fetch full points array for a track.
      * Supports both standard JSON format ({"points": [...]}) and NDJSON format
      * (one JSON object per line with no "points" property wrapper).
+     * Tries to fetch .ndjson file first, falls back to .json if not found.
      * @param {string} trackId
      * @returns {Promise<Array>}
      */
     async _fetchTrackPoints(trackId) {
         this.logger.debug(`Fetching points for track ${trackId}...`);
         
-        // Fetch as text to detect format
-        const response = await fetch(`${this.baseUrl}/${trackId}.json`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const text = await response.text();
-        
-        // Check if this is NDJSON format (newline-delimited JSON)
-        // NDJSON has one JSON object per line with no outer structure
-        if (text.includes('\n')) {
-            // Likely NDJSON format - parse line by line
-            try {
+        // Try to fetch NDJSON format first
+        try {
+            const ndjsonResponse = await fetch(`${this.baseUrl}/${trackId}.ndjson`);
+            if (ndjsonResponse.ok) {
+                const text = await ndjsonResponse.text();
                 const lines = text.split('\n');
                 const points = [];
                 for (const line of lines) {
@@ -350,18 +346,16 @@ export default class TrackManager {
                         points.push(JSON.parse(line));
                     }
                 }
-                // If we successfully parsed at least one point, return the array
-                if (points.length > 0) {
-                    return points;
-                }
-            } catch (e) {
-                // If NDJSON parsing fails, fall through to try standard JSON
-                this.logger.debug(`Failed to parse as NDJSON, trying standard JSON: ${e.message}`);
+                return points;
             }
+        } catch (e) {
+            this.logger.debug(`Failed to fetch NDJSON file: ${e.message}`);
         }
         
-        // Fall back to standard JSON format with "points" property
-        const data = JSON.parse(text);
+        // Fall back to standard JSON format
+        const response = await fetch(`${this.baseUrl}/${trackId}.json`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
         return data.points || [];
     }
 
