@@ -347,6 +347,8 @@ export default class TrackManager {
                     }
                 }
                 return points;
+            } else {
+                this.logger.debug(`NDJSON file not found (status: ${ndjsonResponse.status}), falling back to JSON`);
             }
         } catch (e) {
             this.logger.debug(`Failed to fetch NDJSON file: ${e.message}`);
