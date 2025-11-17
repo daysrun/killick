@@ -67,7 +67,7 @@ export default class TrackManager {
             try { listener(data.points); } catch (e) { this.logger.error('Listener error:', e); }
         } else {
             try {
-                const points = await this._fetchTrackPoints(trackId);
+                const points = await this._fetchNdjsonOrJson(trackId, 'points');
                 data.points = points;
                 try { listener(points); } catch (e) { this.logger.error('Listener error:', e); }
             } catch (e) {
@@ -329,15 +329,6 @@ export default class TrackManager {
     }
 
     /**
-     * Internal helper to fetch full points array for a track.
-     * @param {string} trackId
-     * @returns {Promise<Array>}
-     */
-    async _fetchTrackPoints(trackId) {
-        return this._fetchNdjsonOrJson(trackId, 'points');
-    }
-
-    /**
      * Notify tracks list listeners and update internal list cache
      * @param {Array} nextTracks
      */
@@ -368,7 +359,7 @@ export default class TrackManager {
         const oldCount = d.points?.length || 0;
         if (newCount <= oldCount) return;
         try {
-            const points = await this._fetchTrackPoints(trackId);
+            const points = await this._fetchNdjsonOrJson(trackId, 'points');
             const newPoints = points.slice(oldCount);
             d.points = points;
             if (newPoints.length > 0) this._safeNotify(d.listeners, `track ${trackId}`, newPoints);
