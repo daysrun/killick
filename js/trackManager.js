@@ -86,8 +86,6 @@ export default class TrackManager {
         };
     }
 
-    // (ref-count release removed; cache cleanup now handled by unregister in registerListener)
-
     /**
      * Get metadata for a section's tracks
      * @param {string} sectionId - section id (e.g., year like "2025"). If omitted, returns empty array.
@@ -104,20 +102,6 @@ export default class TrackManager {
             return this.tracks.filter(t => (typeof t.id === 'string' && t.id.slice(0,4) === String(sectionId)));
         }
         return [];
-    }
-
-    /**
-     * Get the distance of a specific track
-     * @param {string} trackId
-     * @returns {number|null} Distance in meters, or null if not found
-     */
-    getTrackDistance(trackId) {
-        if (!trackId || typeof trackId !== 'string' || trackId.length < 4) return null;
-        // Track IDs are in the format YYYYMMDD-HHmm; derive section/year from first 4 chars
-        const year = trackId.slice(0,4);
-        const list = this.getTracks(year);
-        const track = list.find(t => t.id === trackId);
-        return track ? (track.Distance || null) : null;
     }
 
     /**
@@ -289,7 +273,7 @@ export default class TrackManager {
                         this.logger.info(`Live track cleared`);
                     }
                     this.liveTrackId = liveTrackId;
-                        this._safeNotify(this.liveTrackListeners, 'live track', this.liveTrackId);
+                    this._safeNotify(this.liveTrackListeners, 'live track', this.liveTrackId);
                 }
                 if (liveTrackId) {
                     const liveCount = updateData.live.pointCount || 0;
