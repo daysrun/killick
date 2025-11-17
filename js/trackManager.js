@@ -340,13 +340,13 @@ export default class TrackManager {
         
         // Check if this is NDJSON format (newline-delimited JSON)
         // NDJSON has one JSON object per line with no outer structure
-        if (text.trim().includes('\n')) {
+        if (text.includes('\n')) {
             // Likely NDJSON format - parse line by line
             try {
-                const lines = text.trim().split('\n');
+                const lines = text.split('\n');
                 const points = [];
                 for (const line of lines) {
-                    if (line.trim()) {
+                    if (line) {
                         points.push(JSON.parse(line));
                     }
                 }
