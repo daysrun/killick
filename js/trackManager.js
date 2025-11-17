@@ -1,8 +1,8 @@
 // TrackManager module: manages track metadata and per-track point listeners.
 //
 // Behavior notes:
-// - The TrackManager polls `update.json` and `tracks.json` to detect changes.
-// - When `tracks.json` changes, TrackManager groups the tracks into sections
+// - The TrackManager polls `update.json` and `[year].json` to detect changes.
+// - When `[year].json` changes, TrackManager groups the tracks into sections
 //   (by year derived from the first 4 characters of the track id) and notifies
 //   registered tracks listeners once per section with the signature
 //   `(sectionId, tracksArray)`.
@@ -15,7 +15,7 @@ export default class TrackManager {
         this.tracks = new Map();
         // Map: trackId -> { points: Array, listeners: Set<Function> }
         this.trackData = new Map();
-        // timer for polling tracks.json
+        // timer for polling [year].json files
         this.tracksPollTimer = null;
         // listeners for full tracks list changes
         this.tracksListeners = new Set();
@@ -67,7 +67,7 @@ export default class TrackManager {
             try { listener(data.points); } catch (e) { this.logger.error('Listener error:', e); }
         } else {
             try {
-                const points = await this._fetchTrackPoints(trackId);
+                const points = await this._fetchNdjsonOrJson(trackId, 'points');
                 data.points = points;
                 try { listener(points); } catch (e) { this.logger.error('Listener error:', e); }
             } catch (e) {
@@ -108,7 +108,7 @@ export default class TrackManager {
      * Register a listener for changes to the tracks index.
      * Listeners will be invoked once per section with the signature: (sectionId, tracksArray).
      * The TrackManager groups the full tracks index into sections (by year derived from track id)
-     * and notifies listeners for each section when tracks.json changes. On registration the
+     * and notifies listeners for each section when [year].json changes. On registration the
      * listener is immediately invoked for existing sections.
      * @param {Function} listener - Function(sectionId: string, tracksArray: Array)
      * @returns {Function} Unregister function
@@ -158,7 +158,7 @@ export default class TrackManager {
     }
 
     /**
-     * Start polling update.json and tracks.json to detect when new tracks are added
+     * Start polling update.json and [year].json to detect when new tracks are added
      * and when track point counts increase for tracks with listeners.
      */
     startPollingTracks() {
@@ -167,7 +167,7 @@ export default class TrackManager {
             this.tracksPollTimer = null;
         }
         const poll = async () => {
-            this.logger.debug(`Polling update.json for latest tracks.json timestamp...`);
+            this.logger.debug(`Polling update.json for latest track index timestamps...`);
             try {
                 // Fetch update.json to check for tracks.json and live track updates
                 const updateData = await this._fetchJson('update.json');
@@ -194,10 +194,8 @@ export default class TrackManager {
 
                     if (editedTs && editedTs > prevTs) {
                         // Yearly file updated — fetch it
-                        const rel = `${yearKey}.json`;
                         try {
-                            const data = await this._fetchJson(rel);
-                            const tracksForYear = Array.isArray(data.tracks) ? data.tracks : [];
+                            const tracksForYear = await this._fetchNdjsonOrJson(yearKey, 'tracks');
                             tracksForYear.sort((a, b) => (a.id < b.id ? 1 : -1));
                             if (tracksForYear.length > 0) {
                                 const nextJson = JSON.stringify(tracksForYear);
@@ -282,7 +280,7 @@ export default class TrackManager {
                     await this._refreshIfIncreased(liveTrackId, liveCount);
                 }
             } catch (err) {
-                this.logger.error('Error polling tracks.json:', err);
+                this.logger.error('Error polling track indices:', err);
             }
         };
         // Initial poll immediately
@@ -292,30 +290,42 @@ export default class TrackManager {
     }
 
     /**
-     * Fetch tracks.json and return the new tracks array
-     * @param {Date} updateTimestamp - Timestamp of the last update from update.json
-     * @returns {Array<Object>} Array of track metadata objects
-     */
-    async _fetchTracks(updateTimestamp) {
-        try {
-            const data = await this._fetchJson('tracks.json');
-            this.lastTracksUpdate = updateTimestamp;
-            return data.tracks || [];
-        } catch (error) {
-            this.logger.error('Error fetching tracks.json:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Internal helper to fetch full points array for a track
-     * @param {string} trackId
+     * Internal helper to fetch data in NDJSON or JSON format.
+     * Supports both standard JSON format (with optional property wrapper) and NDJSON format
+     * (one JSON object per line with no property wrapper).
+     * Tries to fetch .ndjson file first, falls back to .json if not found.
+     * @param {string} filename - Base filename without extension (e.g., 'trackId' or '2025')
+     * @param {string} jsonProperty - Property name to extract from JSON format (e.g., 'points' or 'tracks'), or null for no wrapper
      * @returns {Promise<Array>}
      */
-    async _fetchTrackPoints(trackId) {
-        this.logger.debug(`Fetching points for track ${trackId}...`);
-        const data = await this._fetchJson(`${trackId}.json`);
-        return data.points || [];
+    async _fetchNdjsonOrJson(filename, jsonProperty = null) {
+        this.logger.debug(`Fetching ${filename}...`);
+
+        // Try to fetch NDJSON format first
+        try {
+            const ndjsonResponse = await fetch(`${this.baseUrl}/${filename}.ndjson`);
+            if (ndjsonResponse.ok) {
+                const text = await ndjsonResponse.text();
+                const lines = text.split('\n');
+                const items = [];
+                for (const line of lines) {
+                    if (line.trim()) {
+                        items.push(JSON.parse(line));
+                    }
+                }
+                return items;
+            } else {
+                this.logger.debug(`NDJSON file not found (status: ${ndjsonResponse.status}), falling back to JSON`);
+            }
+        } catch (e) {
+            this.logger.debug(`Failed to fetch NDJSON file: ${e.message}`);
+        }
+
+        // Fall back to standard JSON format
+        const response = await fetch(`${this.baseUrl}/${filename}.json`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        return jsonProperty ? (data[jsonProperty] || []) : data;
     }
 
     /**
@@ -349,7 +359,7 @@ export default class TrackManager {
         const oldCount = d.points?.length || 0;
         if (newCount <= oldCount) return;
         try {
-            const points = await this._fetchTrackPoints(trackId);
+            const points = await this._fetchNdjsonOrJson(trackId, 'points');
             const newPoints = points.slice(oldCount);
             d.points = points;
             if (newPoints.length > 0) this._safeNotify(d.listeners, `track ${trackId}`, newPoints);
