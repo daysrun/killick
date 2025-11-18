@@ -300,10 +300,12 @@ export default class TrackManager {
      */
     async _fetchNdjsonOrJson(filename, jsonProperty = null) {
         this.logger.debug(`Fetching ${filename}...`);
+        // Add timestamp to prevent caching
+        const cacheBuster = `?_=${Date.now()}`;
 
         // Try to fetch NDJSON format first
         try {
-            const ndjsonResponse = await fetch(`${this.baseUrl}/${filename}.ndjson`);
+            const ndjsonResponse = await fetch(`${this.baseUrl}/${filename}.ndjson${cacheBuster}`);
             if (ndjsonResponse.ok) {
                 const text = await ndjsonResponse.text();
                 const lines = text.split('\n');
@@ -322,7 +324,7 @@ export default class TrackManager {
         }
 
         // Fall back to standard JSON format
-        const response = await fetch(`${this.baseUrl}/${filename}.json`);
+        const response = await fetch(`${this.baseUrl}/${filename}.json${cacheBuster}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
         return jsonProperty ? (data[jsonProperty] || []) : data;
@@ -410,7 +412,9 @@ export default class TrackManager {
      * @param {string} relativePath
      */
     async _fetchJson(relativePath) {
-        const response = await fetch(`${this.baseUrl}/${relativePath}`);
+        // Add timestamp to prevent caching
+        const cacheBuster = `?_=${Date.now()}`;
+        const response = await fetch(`${this.baseUrl}/${relativePath}${cacheBuster}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return response.json();
     }
