@@ -72,8 +72,11 @@ async function initTrackManager() {
 // Small helper to configure runtime (data URL, poll interval, logger)
 function getRuntimeConfig() {
     const isProd = window.location.href.includes('https://daysrun.github.io');
+    const urlParams = new URLSearchParams(window.location.search);
+    const param = urlParams.get('branch');
+    const branch = param ? param : 'main';
     return {
-        dataUrl: isProd ? 'https://daysrun.github.io/shipslog/killick' : 'shipslog/killick',
+        dataUrl: isProd ? `https://daysrun.github.io/shipslog/killick/${branch}` : `shipslog/killick`,
         pollInterval: isProd ? 60000 : 5000,
         logger: new Logger(isProd ? Logger.ENVIRONMENTS.PROD : Logger.ENVIRONMENTS.DEV, 'TrackManager'),
     };
