@@ -127,6 +127,7 @@
     cursor: pointer;
     user-select: none;
     font-weight: 600;
+    font-size: 15px;
 }
 
 .map-menu-section-header:hover {
@@ -246,4 +247,87 @@
 .map-menu-footer-value {
     color: #111;
     opacity: 0.95;
+}
+
+/* Settings section content */
+.map-menu-settings-content {
+    padding: 8px;
+}
+
+.map-menu-setting-group {
+    margin-bottom: 16px;
+}
+
+.map-menu-setting-group:last-child {
+    margin-bottom: 0;
+}
+
+.map-menu-setting-label {
+    font-weight: 600;
+    font-size: 12px;
+    color: #222;
+    margin-bottom: 6px;
+    padding: 0 4px;
+}
+
+.map-menu-setting-option {
+    display: flex;
+    align-items: center;
+    padding: 6px 4px;
+}
+
+.map-menu-radio {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.map-menu-setting-option .map-menu-label {
+    font-size: 13px;
+    font-weight: normal;
+}
+
+/* Dark theme for menu */
+body.dark-theme .map-menu-container {
+    background: rgba(40, 40, 40, 0.95);
+    color: #e0e0e0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+}
+
+body.dark-theme .map-menu-header {
+    background: rgba(40, 40, 40, 0.95);
+}
+
+body.dark-theme .map-menu-section {
+    border-color: rgba(255,255,255,0.15);
+}
+
+body.dark-theme .map-menu-section-header {
+    background: rgba(255,255,255,0.08);
+    color: #e0e0e0;
+}
+
+body.dark-theme .map-menu-section-header:hover {
+    background: rgba(255,255,255,0.12);
+}
+
+body.dark-theme .map-menu-row {
+    border-bottom-color: rgba(255,255,255,0.06);
+}
+
+body.dark-theme .map-menu-label {
+    color: #d0d0d0;
+}
+
+body.dark-theme .map-menu-footer {
+    background: rgba(40, 40, 40, 0.95);
+    border-top-color: rgba(255,255,255,0.1);
+}
+
+body.dark-theme .map-menu-footer-label,
+body.dark-theme .map-menu-footer-value {
+    color: #e0e0e0;
+}
+
+body.dark-theme .map-menu-setting-label {
+    color: #e0e0e0;
 }

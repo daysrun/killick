@@ -384,3 +384,29 @@
     #nav-dashboard + .nav-toggle svg { transform: rotate(90deg); }
     #nav-dashboard.collapsed + .nav-toggle svg { transform: rotate(270deg); }
 }
+
+/* Dark theme for navigation dashboard */
+body.dark-theme .nav-dashboard {
+    background: linear-gradient(45deg, #2a2a2a 0%, #404040 100%);
+    border-color: rgba(255,255,255,0.15);
+}
+
+body.dark-theme .nav-square {
+    background: linear-gradient(-45deg, #1a1a1a, #404040);
+    border-color: rgba(255,255,255,0.1);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+}
+
+body.dark-theme .stat-tile {
+    color: #e0e0e0;
+}
+
+body.dark-theme .nav-toggle {
+    background: rgba(40, 40, 40, 0.98);
+    border-color: rgba(255,255,255,0.2);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.9);
+}
+
+body.dark-theme .nav-toggle svg {
+    fill: #e0e0e0;
+}

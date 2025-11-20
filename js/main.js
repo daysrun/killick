@@ -3,6 +3,7 @@ import MapMenu from './mapMenu.js';
 import TrackManager from './trackManager.js';
 import TrackView from './trackView.js';
 import NavDashboard from './navDashboard.js';
+import Settings from './settings.js';
 
 
 // module-level singletons (created in main.js)
@@ -101,6 +102,10 @@ initMap().then(async (m) => {
 
     // Initialize TrackManager and create initial TrackView
     await initTrackManager();
+
+    // Create Settings instance and apply initial settings
+    const settings = new Settings();
+    settings.applySettings();
 
     // Create a NavDashboard instance and initialize it. We'll pass this
     // instance into TrackView when following the live track so TrackView
@@ -205,6 +210,7 @@ initMap().then(async (m) => {
         {
             hasLiveTrack: trackManager.hasLiveTrack(),
             liveTrackId: trackManager.getLiveTrackId(),
+            settings: settings,
             onLiveTrackFollowChange: async (checked) => {
                 const liveTrackId = trackManager.getLiveTrackId();
                 if (!liveTrackId) return;

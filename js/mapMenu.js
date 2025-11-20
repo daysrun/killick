@@ -5,12 +5,13 @@ export default class MapMenu {
     /**
      * @param {google.maps.Map} map
      * @param {Function} onChange - Callback (trackId, checked) when checkbox toggled
-     * @param {Object} options - {hasLiveTrack: boolean, liveTrackId: string|null}
+     * @param {Object} options - {hasLiveTrack: boolean, liveTrackId: string|null, settings: Settings}
      */
     constructor(map, onChange = () => {}, options = {}) {
         this.map = map;
         this.onChange = onChange;
         this.onLiveTrackFollowChange = options.onLiveTrackFollowChange || (() => {});
+        this.settings = options.settings || null;
         this.container = document.createElement('div');
         this.container.className = 'map-menu-container';
         this.swatchColours = new Map();
@@ -73,6 +74,13 @@ export default class MapMenu {
         // Sections map: sectionId -> { section, list, title }
         // Sections (including any 'Log'-like groups) must be added explicitly via addSection()
         this.sections = new Map();
+
+        // Create Settings section (if settings instance provided)
+        if (this.settings) {
+            this.settingsSection = this._createSection('⚙ Settings', 'settings');
+            this._populateSettingsSection();
+            this.body.appendChild(this.settingsSection.container);
+        }
 
         // Toggle main body visibility when header clicked
         this.header.addEventListener('click', () => {
@@ -410,8 +418,12 @@ export default class MapMenu {
             }
         }
         if (!inserted) {
-            // append after existing sections; keep after liveSection
-            this.body.appendChild(section.container);
+            // append after existing sections; insert before settings section if it exists
+            if (this.settingsSection && this.settingsSection.container.parentElement === this.body) {
+                this.body.insertBefore(section.container, this.settingsSection.container);
+            } else {
+                this.body.appendChild(section.container);
+            }
         }
 
         this.sections.set(sectionId, { section, list, title: newTitle });
@@ -468,5 +480,95 @@ export default class MapMenu {
             section.container.parentElement.removeChild(section.container);
         }
         this.sections.delete(sectionId);
+    }
+
+    /**
+     * Populate the settings section with configuration options
+     */
+    _populateSettingsSection() {
+        if (!this.settings || !this.settingsSection) return;
+
+        const content = document.createElement('div');
+        content.className = 'map-menu-settings-content';
+
+        // Speed units setting
+        content.appendChild(this._createSettingGroup(
+            'Speed Units',
+            'speedUnit',
+            [
+                { value: 'km/h', label: 'km/h' },
+                { value: 'knots', label: 'Knots' },
+                { value: 'm/s', label: 'm/s' }
+            ]
+        ));
+
+        // Depth units setting
+        content.appendChild(this._createSettingGroup(
+            'Depth Units',
+            'depthUnit',
+            [
+                { value: 'feet', label: 'Feet' },
+                { value: 'm', label: 'Meters' }
+            ]
+        ));
+
+        // Theme setting
+        content.appendChild(this._createSettingGroup(
+            'Theme',
+            'theme',
+            [
+                { value: 'light', label: 'Light' },
+                { value: 'dark', label: 'Dark' }
+            ]
+        ));
+
+        this.settingsSection.content.appendChild(content);
+    }
+
+    /**
+     * Create a setting group with radio buttons
+     * @param {string} label - Group label
+     * @param {string} settingName - Setting key
+     * @param {Array} options - Array of {value, label}
+     * @returns {HTMLElement}
+     */
+    _createSettingGroup(label, settingName, options) {
+        const group = document.createElement('div');
+        group.className = 'map-menu-setting-group';
+
+        const groupLabel = document.createElement('div');
+        groupLabel.className = 'map-menu-setting-label';
+        groupLabel.textContent = label;
+        group.appendChild(groupLabel);
+
+        const currentValue = this.settings.get(settingName);
+
+        options.forEach(option => {
+            const optionRow = document.createElement('div');
+            optionRow.className = 'map-menu-setting-option';
+
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = `menu-${settingName}`;
+            radio.value = option.value;
+            radio.checked = currentValue === option.value;
+            radio.className = 'map-menu-radio';
+            radio.addEventListener('change', () => {
+                if (radio.checked) {
+                    this.settings.set(settingName, option.value);
+                }
+            });
+
+            const optionLabel = document.createElement('label');
+            optionLabel.textContent = option.label;
+            optionLabel.className = 'map-menu-label';
+            optionLabel.addEventListener('click', () => radio.click());
+
+            optionRow.appendChild(radio);
+            optionRow.appendChild(optionLabel);
+            group.appendChild(optionRow);
+        });
+
+        return group;
     }
 }
