@@ -27,8 +27,12 @@ export class UnitManager {
 			case 'AWS':
 			case 'SOG':
 				// Speed in m/s -> knots
+                if (value === undefined || value === null || isNaN(value)) {
+                    return { value: '--', unit: 'knots', unitSpace: ' ' };
+                }
+                const knots = value * 1.94384;
 				return {
-                    value: (value * 1.94384).toFixed(value === 0 ? 0 : value < 10 ? 1 : 0),
+                    value: knots.toFixed(knots === 0 ? 0 : knots < 9.999 ? 1 : 0),
                     unit: 'knots',
                     unitSpace: ' '
                 };
@@ -52,6 +56,9 @@ export class UnitManager {
 	}
 
     static convertWindAngle(angleRadians) {
+        if (angleRadians === undefined || angleRadians === null || isNaN(angleRadians)) {
+            return { value: 0, unit: '°', unitSpace: '' };
+        }
         let angleDegrees = angleRadians * (180 / Math.PI);
         return { value: angleDegrees, unit: '°', unitSpace: '' };
     }
