@@ -15,6 +15,7 @@ export default class Settings {
     loadSettings() {
         const defaultSettings = {
             speedUnit: 'knots',
+            distanceUnit: 'nm',
             depthUnit: 'm',
             theme: 'light'
         };
