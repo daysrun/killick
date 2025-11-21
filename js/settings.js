@@ -16,7 +16,7 @@ export default class Settings {
         const defaultSettings = {
             speedUnit: 'knots',
             distanceUnit: 'nm',
-            depthUnit: 'm',
+            depthUnit: 'feet',
             theme: 'light'
         };
 
