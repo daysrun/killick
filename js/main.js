@@ -3,6 +3,7 @@ import MapMenu from './mapMenu.js';
 import TrackManager from './trackManager.js';
 import TrackView from './trackView.js';
 import NavDashboard from './navDashboard.js';
+import Settings from './settings.js';
 
 
 // module-level singletons (created in main.js)
@@ -17,7 +18,7 @@ const activeTrackViews = new Map(); // trackId -> { trackView, unregister }
  * @param {boolean} centerMap - Whether to center the map on the first point
  * @returns {Promise<Object>} Promise of { trackView, trackId, unregister }
  */
-async function createTrackView(trackId, trackColour, centerMap = false, dashboard, onBoundsChange = null) {
+async function createTrackView(trackId, trackColour, centerMap = false, dashboard, onBoundsChange = null, settings = null) {
     if (!map) {
         throw new Error('createTrackView called before map initialization; call after initMap completes');
     }
@@ -25,7 +26,7 @@ async function createTrackView(trackId, trackColour, centerMap = false, dashboar
         throw new Error('createTrackView called before TrackManager initialization');
     }
 
-    const tv = new TrackView(map, trackColour, centerMap, dashboard, onBoundsChange);
+    const tv = new TrackView(map, trackColour, centerMap, dashboard, onBoundsChange, settings);
 
     // Add to activeTrackViews first so it's included if callback fires during registerListener
     // Create a placeholder entry that will be updated with unregister function
@@ -102,6 +103,10 @@ initMap().then(async (m) => {
     // Initialize TrackManager and create initial TrackView
     await initTrackManager();
 
+    // Create Settings instance and apply initial settings
+    const settings = new Settings();
+    settings.applySettings();
+
     // Create a NavDashboard instance and initialize it. We'll pass this
     // instance into TrackView when following the live track so TrackView
     // can update tiles / wind instruments.
@@ -167,7 +172,7 @@ initMap().then(async (m) => {
     const activateTrack = async (trackId, explicitColour, centerMap, dashboard=null) => {
         if (!trackId || activeTrackViews.has(trackId)) return;
         const colour = explicitColour || getTrackColour(trackId);
-        await createTrackView(trackId, colour, centerMap, dashboard, fitAllActiveTracks);
+        await createTrackView(trackId, colour, centerMap, dashboard, fitAllActiveTracks, settings);
         menu.setTrackSwatch(trackId, colour);
         if (dashboard && typeof dashboard.hide === 'function') {
             // Register a listener for live track updates to hide the dashboard when deactivated
@@ -205,6 +210,7 @@ initMap().then(async (m) => {
         {
             hasLiveTrack: trackManager.hasLiveTrack(),
             liveTrackId: trackManager.getLiveTrackId(),
+            settings: settings,
             onLiveTrackFollowChange: async (checked) => {
                 const liveTrackId = trackManager.getLiveTrackId();
                 if (!liveTrackId) return;
@@ -219,6 +225,17 @@ initMap().then(async (m) => {
                     }
                 } catch (err) {
                     console.error('Error handling live track follow change:', err);
+                }
+            },
+            onUnitsChanged: async () => {
+                // Reload all active tracks when units change
+                const trackIds = Array.from(activeTrackViews.keys());
+                for (const trackId of trackIds) {
+                    const colour = getTrackColour(trackId);
+                    const isLive = trackId === trackManager.getLiveTrackId();
+                    // Deactivate and reactivate to force reload with new units
+                    deactivateTrack(trackId);
+                    await activateTrack(trackId, colour, false, isLive ? navDashboard : null);
                 }
             }
         }

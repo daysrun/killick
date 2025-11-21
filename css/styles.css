@@ -46,3 +46,27 @@ footer {
     border-top: 1px solid #eee;
     margin-top: 2rem;
 }
+
+/* Dark theme */
+body.dark-theme {
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+}
+
+body.dark-theme header {
+    background-color: #2a2a2a;
+}
+
+body.dark-theme h1 {
+    color: #e0e0e0;
+}
+
+body.dark-theme section {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+}
+
+body.dark-theme footer {
+    color: #999;
+    border-top-color: #333;
+}

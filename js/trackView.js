@@ -26,7 +26,7 @@ export default class TrackView {
         return TrackView.arrowSvgCache.replace(/FILL_COLOR/g, colour);
     }
 
-    constructor(map, trackColour, centerMap, dashboard=null, onBoundsChange=null) {
+    constructor(map, trackColour, centerMap, dashboard=null, onBoundsChange=null, settings=null) {
         this.map = map;
         this.trackColour = trackColour;
         this.trackPoints = [];
@@ -36,6 +36,7 @@ export default class TrackView {
         this.bounds = new google.maps.LatLngBounds();
         this.distance = 0;
         this.onBoundsChange = onBoundsChange;
+        this.settings = settings;
         // If a NavDashboard instance was provided, ensure it's visible so TrackView
         // can update tiles immediately. The dashboard instance is expected to have
         // been initialized by the caller (main.js).
@@ -117,7 +118,8 @@ export default class TrackView {
                 const metadataLines = [];
                 for (const key in pointData) {
                     if (key !== 'position' && key !== 'timestamp' && pointData[key] !== undefined) {
-                        const convertedValue = UnitManager.convertValue(key, pointData[key]);
+                        const targetUnit = this._getTargetUnit(key);
+                        const convertedValue = UnitManager.convertValue(key, pointData[key], targetUnit);
                         metadataLines.push(
                             `<strong>${key}:</strong> ${convertedValue.value}${convertedValue.unitSpace}${convertedValue.unit}`
                         );
@@ -157,11 +159,11 @@ export default class TrackView {
                 if (this.dashboard) {
                     this.dashboard.setWind(
                         UnitManager.convertWindAngle(element.AWA),
-                        UnitManager.convertValue('AWS', element.AWS)
+                        UnitManager.convertValue('AWS', element.AWS, this._getTargetUnit('AWS'))
                     );
-                    this.dashboard.setSOG(UnitManager.convertValue('SOG', element.SOG));
-                    this.dashboard.setDepth(UnitManager.convertValue('Depth', element.Depth));
-                    this.dashboard.setDistance(UnitManager.convertValue('Distance', element.Distance));
+                    this.dashboard.setSOG(UnitManager.convertValue('SOG', element.SOG, this._getTargetUnit('SOG')));
+                    this.dashboard.setDepth(UnitManager.convertValue('Depth', element.Depth, this._getTargetUnit('Depth')));
+                    this.dashboard.setDistance(UnitManager.convertValue('Distance', element.Distance, this._getTargetUnit('Distance')));
                 }
             }
             this.prevPointData = element;
@@ -202,6 +204,18 @@ export default class TrackView {
 
     static getMarkerDiameter(zoom) {
         return TrackView.circleDiameterPixels * (zoom / 20);
+    }
+
+    _getTargetUnit(key) {
+        if (!this.settings) return null;
+        if (key === 'Depth') {
+            return this.settings.get('depthUnit');
+        } else if (key === 'AWS' || key === 'SOG') {
+            return this.settings.get('speedUnit');
+        } else if (key === 'Distance') {
+            return this.settings.get('distanceUnit');
+        }
+        return null;
     }
 
     // Remove all visuals from the map and clear internal state to allow GC

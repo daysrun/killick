@@ -5,18 +5,29 @@
 export class UnitManager {
 	/**
 	 * Convert a named telemetry value into a display-friendly value + unit.
-	 * Input: key (string) and value (number or other).
-	 * Output: { value: displayValue, unit: string }
+	 * Input: key (string), value (number or other), and targetUnit.
+	 * Output: { value: displayValue, unit: string, unitSpace: string }
 	 */
-	static convertValue(key, value) {
+	static convertValue(key, value, targetUnit) {
 		switch (key) {
 			case 'Depth':
-				// Depth in meters -> feet. Use '--' for sentinel large values.
-				return {
-                    value: value < 42000000 ? (value * 3.28084).toFixed(value > 3 ? 0 : 1) : '--',
-                    unit: 'ft',
-                    unitSpace: ' '
-                };
+				// Depth conversion
+				if (value >= 42000000) {
+					return { value: '--', unit: targetUnit || 'm', unitSpace: ' ' };
+				}
+				if (targetUnit === 'feet') {
+					return {
+						value: (value * 3.28084).toFixed(value > 3 ? 0 : 1),
+						unit: 'ft',
+						unitSpace: ' '
+					};
+				} else {
+					return {
+						value: value.toFixed(value > 3 ? 0 : 1),
+						unit: 'm',
+						unitSpace: ' '
+					};
+				}
 			case 'AWA':
 				// Apparent wind angle (radians) -> degrees, indicate side
 				return {
@@ -26,16 +37,31 @@ export class UnitManager {
                 };
 			case 'AWS':
 			case 'SOG':
-				// Speed in m/s -> knots
+				// Speed conversion
                 if (value === undefined || value === null || isNaN(value)) {
-                    return { value: '--', unit: 'knots', unitSpace: ' ' };
+                    return { value: '--', unit: targetUnit || 'knots', unitSpace: ' ' };
                 }
-                const knots = value * 1.94384;
-				return {
-                    value: knots.toFixed(knots === 0 ? 0 : knots < 9.999 ? 1 : 0),
-                    unit: 'knots',
-                    unitSpace: ' '
-                };
+				if (targetUnit === 'knots') {
+					const knots = value * 1.94384;
+					return {
+						value: knots.toFixed(knots === 0 ? 0 : knots < 9.999 ? 1 : 0),
+						unit: 'knots',
+						unitSpace: ' '
+					};
+				} else if (targetUnit === 'km/h') {
+					const kmh = value * 3.6;
+					return {
+						value: kmh.toFixed(kmh === 0 ? 0 : kmh < 9.999 ? 1 : 0),
+						unit: 'km/h',
+						unitSpace: ' '
+					};
+				} else { // m/s
+					return {
+						value: value.toFixed(value === 0 ? 0 : value < 9.999 ? 1 : 0),
+						unit: 'm/s',
+						unitSpace: ' '
+					};
+				}
 			case 'COG':
 				// Course over ground in radians -> degrees True
 				return {
@@ -44,12 +70,29 @@ export class UnitManager {
                     unitSpace: ''
                 };
 			case 'Distance':
-				// Meters -> nautical miles
-				return {
-                    value: (value * 0.000539957).toFixed(1),
-                    unit: 'nm',
-                    unitSpace: ' '
-                };
+				// Distance conversion
+				if (targetUnit === 'nm') {
+					// Meters -> nautical miles
+					return {
+						value: (value * 0.000539957).toFixed(1),
+						unit: 'nm',
+						unitSpace: ' '
+					};
+				} else if (targetUnit === 'km') {
+					// Meters -> kilometers
+					return {
+						value: (value / 1000).toFixed(1),
+						unit: 'km',
+						unitSpace: ' '
+					};
+				} else {
+					// Meters (no conversion)
+					return {
+						value: value.toFixed(value > 100 ? 0 : 1),
+						unit: 'm',
+						unitSpace: ' '
+					};
+				}
 			default:
 				return { value: value, unit: '', unitSpace: '' };
 		}

@@ -5,12 +5,14 @@ export default class MapMenu {
     /**
      * @param {google.maps.Map} map
      * @param {Function} onChange - Callback (trackId, checked) when checkbox toggled
-     * @param {Object} options - {hasLiveTrack: boolean, liveTrackId: string|null}
+     * @param {Object} options - {hasLiveTrack: boolean, liveTrackId: string|null, settings: Settings, onUnitsChanged: Function}
      */
     constructor(map, onChange = () => {}, options = {}) {
         this.map = map;
         this.onChange = onChange;
         this.onLiveTrackFollowChange = options.onLiveTrackFollowChange || (() => {});
+        this.onUnitsChanged = options.onUnitsChanged || (() => {});
+        this.settings = options.settings || null;
         this.container = document.createElement('div');
         this.container.className = 'map-menu-container';
         this.swatchColours = new Map();
@@ -74,6 +76,13 @@ export default class MapMenu {
         // Sections (including any 'Log'-like groups) must be added explicitly via addSection()
         this.sections = new Map();
 
+        // Create Settings section (if settings instance provided)
+        if (this.settings) {
+            this.settingsSection = this._createSection('⚙ Settings', 'settings');
+            this._populateSettingsSection();
+            this.body.appendChild(this.settingsSection.container);
+        }
+
         // Toggle main body visibility when header clicked
         this.header.addEventListener('click', () => {
             this.container.classList.toggle('open');
@@ -85,6 +94,13 @@ export default class MapMenu {
         // Map of trackId -> input element (a track appears in exactly one section)
         this.checkboxes = new Map();
         this._updateLiveTrackSection();
+
+        // Register listeners for unit changes
+        if (this.settings) {
+            this.settings.addListener('speedUnit', () => this._handleUnitsChanged());
+            this.settings.addListener('depthUnit', () => this._handleUnitsChanged());
+            this.settings.addListener('distanceUnit', () => this._handleUnitsChanged());
+        }
 
         // Default: open menu on load
         this.container.classList.add('open');
@@ -225,10 +241,12 @@ export default class MapMenu {
         const input = document.createElement('input');
         input.type = 'checkbox';
         input.dataset.trackId = track.id;
+        input.dataset.trackDistance = track.Distance || 0; // Store distance for later updates
         input.className = 'map-menu-checkbox';
 
         const label = document.createElement('label');
-        const distance = UnitManager.convertValue('Distance', track.Distance || 0);
+        const targetUnit = this.settings ? this.settings.get('distanceUnit') : 'nm';
+        const distance = UnitManager.convertValue('Distance', track.Distance || 0, targetUnit);
         label.textContent = `${MapMenu.beautifyTrackId(track.id)} (${distance.value} ${distance.unit})`;
         label.className = 'map-menu-label';
 
@@ -346,10 +364,44 @@ export default class MapMenu {
         }
         if (typeof value === 'number' && isFinite(value)) {
             // Assume meters input
-            const converted = UnitManager.convertValue('Distance', value);
+            const targetUnit = this.settings ? this.settings.get('distanceUnit') : 'nm';
+            const converted = UnitManager.convertValue('Distance', value, targetUnit);
             this.selectedDistanceValue.textContent = `${converted.value} ${converted.unit}`;
         } else {
             this.selectedDistanceValue.textContent = `${value}`;
+        }
+    }
+
+    /**
+     * Handle unit changes by updating track distances and reloading active tracks
+     */
+    _handleUnitsChanged() {
+        // Update all track distances in the menu labels
+        this.checkboxes.forEach((input, trackId) => {
+            const label = input.parentElement?.querySelector('.map-menu-label');
+            const distanceMeters = parseFloat(input.dataset.trackDistance) || 0;
+            if (label && distanceMeters && this.settings) {
+                const targetUnit = this.settings.get('distanceUnit');
+                const distance = UnitManager.convertValue('Distance', distanceMeters, targetUnit);
+                // Preserve the swatch if present
+                const swatch = label.querySelector('.map-menu-swatch');
+                const beautifiedId = MapMenu.beautifyTrackId(trackId);
+                label.textContent = `${beautifiedId} (${distance.value} ${distance.unit})`;
+                // Re-append swatch if it existed
+                if (swatch) {
+                    label.appendChild(swatch);
+                }
+            }
+        });
+
+        // Update selected distance in footer
+        // This will be automatically updated when tracks are reloaded
+
+        // Notify main.js to reload all active tracks so markers show correct units
+        try {
+            this.onUnitsChanged();
+        } catch (err) {
+            console.error('Error in onUnitsChanged handler:', err);
         }
     }
 
@@ -366,7 +418,12 @@ export default class MapMenu {
                     break;
                 }
             }
-            // no global handlers to remove
+            // Unregister settings listeners
+            if (this.settings) {
+                this.settings.removeListener('speedUnit', () => this._handleUnitsChanged());
+                this.settings.removeListener('depthUnit', () => this._handleUnitsChanged());
+                this.settings.removeListener('distanceUnit', () => this._handleUnitsChanged());
+            }
         } catch (err) {
             // ignore
         }
@@ -410,8 +467,12 @@ export default class MapMenu {
             }
         }
         if (!inserted) {
-            // append after existing sections; keep after liveSection
-            this.body.appendChild(section.container);
+            // append after existing sections; insert before settings section if it exists
+            if (this.settingsSection && this.settingsSection.container.parentElement === this.body) {
+                this.body.insertBefore(section.container, this.settingsSection.container);
+            } else {
+                this.body.appendChild(section.container);
+            }
         }
 
         this.sections.set(sectionId, { section, list, title: newTitle });
@@ -468,5 +529,106 @@ export default class MapMenu {
             section.container.parentElement.removeChild(section.container);
         }
         this.sections.delete(sectionId);
+    }
+
+    /**
+     * Populate the settings section with configuration options
+     */
+    _populateSettingsSection() {
+        if (!this.settings || !this.settingsSection) return;
+
+        const content = document.createElement('div');
+        content.className = 'map-menu-settings-content';
+
+        // Distance units setting
+        content.appendChild(this._createSettingGroup(
+            'Distance Units',
+            'distanceUnit',
+            [
+                { value: 'km', label: 'Kilometers' },
+                { value: 'nm', label: 'Nautical Miles' },
+                { value: 'm', label: 'Meters' }
+            ]
+        ));
+
+        // Speed units setting
+        content.appendChild(this._createSettingGroup(
+            'Speed Units',
+            'speedUnit',
+            [
+                { value: 'km/h', label: 'km/h' },
+                { value: 'knots', label: 'Knots' },
+                { value: 'm/s', label: 'm/s' }
+            ]
+        ));
+
+        // Depth units setting
+        content.appendChild(this._createSettingGroup(
+            'Depth Units',
+            'depthUnit',
+            [
+                { value: 'feet', label: 'Feet' },
+                { value: 'm', label: 'Meters' }
+            ]
+        ));
+
+        // Theme setting
+        content.appendChild(this._createSettingGroup(
+            'Theme',
+            'theme',
+            [
+                { value: 'light', label: 'Light' },
+                { value: 'dark', label: 'Dark' }
+            ]
+        ));
+
+        this.settingsSection.content.appendChild(content);
+    }
+
+    /**
+     * Create a setting group with radio buttons
+     * @param {string} label - Group label
+     * @param {string} settingName - Setting key
+     * @param {Array} options - Array of {value, label}
+     * @returns {HTMLElement}
+     */
+    _createSettingGroup(label, settingName, options) {
+        const group = document.createElement('div');
+        group.className = 'map-menu-setting-group';
+
+        const groupLabel = document.createElement('div');
+        groupLabel.className = 'map-menu-setting-label';
+        groupLabel.textContent = label;
+        group.appendChild(groupLabel);
+
+        const currentValue = this.settings.get(settingName);
+
+        options.forEach(option => {
+            const optionRow = document.createElement('div');
+            optionRow.className = 'map-menu-setting-option';
+
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = `menu-${settingName}`;
+            radio.value = option.value;
+            radio.checked = currentValue === option.value;
+            radio.className = 'map-menu-radio';
+            radio.addEventListener('change', () => {
+                if (radio.checked) {
+                    this.settings.set(settingName, option.value);
+                }
+            });
+
+            const optionLabel = document.createElement('label');
+            optionLabel.textContent = option.label;
+            optionLabel.className = 'map-menu-label';
+            optionLabel.addEventListener('click', () => radio.click());
+
+            optionRow.appendChild(radio);
+            optionRow.appendChild(optionLabel);
+            group.appendChild(optionRow);
+        });
+
+        return group;
     }
 }
